@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:TombRaider1Launcher"
         mc:Ignorable="d"
         Title="Tomb Raider I Launcher" Height="383" Width="680" WindowStyle="None" ResizeMode="CanMinimize"
-        WindowStartupLocation="CenterOwner" Topmost="true" PreviewKeyDown="Window_PreviewKeyDown">
+        WindowStartupLocation="CenterScreen" Topmost="true" PreviewKeyDown="Window_PreviewKeyDown" MouseDown="Window_MouseDown">
     <Control.Background>
         <ImageBrush ImageSource="Resources/background.png"/>
     </Control.Background>

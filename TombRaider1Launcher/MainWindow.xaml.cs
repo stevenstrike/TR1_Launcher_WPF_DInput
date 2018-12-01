@@ -11,16 +11,80 @@ namespace TombRaider1Launcher
     /// </summary>
     public partial class MainWindow : Window, IComponentConnector
     {
-        private JoystickHelper joystickHelper = new JoystickHelper();
+        #region Attributes
+        private JoystickHelper joystickHelper = new JoystickHelper(); 
+        #endregion
 
+        #region Constructor
         public MainWindow()
         {
-            this.InitializeComponent();
+            // UI Stuff.
+            InitializeComponent();
 
-            this.joystickHelper.JoystickLapButtonPressed += this.JoystickHelper_JoystickLapButtonPressed;
-            this.joystickHelper.JoystickButtonPressed += this.JoystickHelper_JoystickButtonPressed;
+            // Enable Joystick support.
+            joystickHelper.SetupJoystickSupport();
+
+            // Register events.
+            joystickHelper.JoystickLapButtonPressed += JoystickHelper_JoystickLapButtonPressed;
+            joystickHelper.JoystickButtonPressed += JoystickHelper_JoystickButtonPressed;
+        } 
+        #endregion
+
+        #region Private Methods
+        #region Start Game
+        /// <summary>
+        /// Starts the tr1 game executable.
+        /// </summary>
+        private void StartTR1()
+        {
+            try
+            {
+                Environment.CurrentDirectory = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory);
+                ProcessStartInfo startInfo = new ProcessStartInfo("tombati.exe");
+                Hide();
+                Process.Start(startInfo).WaitForExit();
+                Close();
+            }
+            catch (SystemException)
+            {
+                Show();
+                MessageBox.Show("tombati.exe not found, please check the installation directory.");
+            }
         }
 
+        /// <summary>
+        /// Starts the tr1 ub game executable.
+        /// </summary>
+        private void StartTR1_UB()
+        {
+            try
+            {
+                Environment.CurrentDirectory = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory);
+                ProcessStartInfo startInfo = new ProcessStartInfo("tombub.exe");
+                Hide();
+                Process.Start(startInfo).WaitForExit();
+                Close();
+            }
+            catch (SystemException)
+            {
+                Show();
+                MessageBox.Show("tombub.exe not found, please check the installation directory.");
+            }
+        } 
+        #endregion
+
+        /// <summary>
+        /// Moves the focused element.
+        /// </summary>
+        /// <param name="direction">The direction.</param>
+        private void MoveFocus(FocusNavigationDirection direction)
+        {
+            var request = new TraversalRequest(direction);
+            MoveFocus(request);
+        }
+        #endregion
+
+        #region UI Events
         /// <summary>
         /// Handles the Click event of the TR1_Button control.
         /// </summary>
@@ -28,9 +92,11 @@ namespace TombRaider1Launcher
         /// <param name="e">The <see cref="RoutedEventArgs"/> instance containing the event data.</param>
         private void TR1_Button_Click(object sender, RoutedEventArgs e)
         {
-            this.joystickHelper.StopCapture();
+            // Disable joystick support before starting the game.
+            joystickHelper.StopCapture(true);
+            joystickHelper.Dispose();
 
-            this.StartTR1();
+            StartTR1();
         }
 
         /// <summary>
@@ -40,9 +106,11 @@ namespace TombRaider1Launcher
         /// <param name="e">The <see cref="RoutedEventArgs"/> instance containing the event data.</param>
         private void TUB_Button_Click(object sender, RoutedEventArgs e)
         {
-            this.joystickHelper.StopCapture();
+            // Disable joystick support before starting the game.
+            joystickHelper.StopCapture(true);
+            joystickHelper.Dispose();
 
-            this.StartTR1_UB();
+            StartTR1_UB();
         }
 
         /// <summary>
@@ -52,59 +120,11 @@ namespace TombRaider1Launcher
         /// <param name="e">The <see cref="RoutedEventArgs"/> instance containing the event data.</param>
         private void ExitButton_Click(object sender, RoutedEventArgs e)
         {
-            this.joystickHelper.StopCapture();
+            // Disable joystick support before stopping the application.
+            joystickHelper.StopCapture(true);
+            joystickHelper.Dispose();
 
-            this.Close();
-        }
-
-        /// <summary>
-        /// Starts the tr1.
-        /// </summary>
-        private void StartTR1()
-        {
-            try
-            {
-                Environment.CurrentDirectory = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory);
-                ProcessStartInfo startInfo = new ProcessStartInfo("tombati.exe");
-                this.Hide();
-                Process.Start(startInfo).WaitForExit();
-                this.Close();
-            }
-            catch (SystemException)
-            {
-                this.Show();
-                MessageBox.Show("tombati.exe not found, please check the installation directory.");
-            }
-        }
-
-        /// <summary>
-        /// Starts the tr1 ub.
-        /// </summary>
-        private void StartTR1_UB()
-        {
-            try
-            {
-                Environment.CurrentDirectory = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory);
-                ProcessStartInfo startInfo = new ProcessStartInfo("tombub.exe");
-                this.Hide();
-                Process.Start(startInfo).WaitForExit();
-                this.Close();
-            }
-            catch (SystemException)
-            {
-                this.Show();
-                MessageBox.Show("tombub.exe not found, please check the installation directory.");
-            }
-        }
-
-        /// <summary>
-        /// Moves the focus.
-        /// </summary>
-        /// <param name="direction">The direction.</param>
-        private void MoveFocus(FocusNavigationDirection direction)
-        {
-            var request = new TraversalRequest(direction);
-            this.MoveFocus(request);
+            Close();
         }
 
         /// <summary>
@@ -117,19 +137,32 @@ namespace TombRaider1Launcher
             switch (e.Key)
             {
                 case Key.Left:
-                    this.MoveFocus(FocusNavigationDirection.Previous);
+                    MoveFocus(FocusNavigationDirection.Previous);
                     break;
                 case Key.Right:
-                    this.MoveFocus(FocusNavigationDirection.Next);
+                    MoveFocus(FocusNavigationDirection.Next);
                     break;
                 case Key.Escape:
-                    this.Close();
+                    Close();
                     break;
                 default:
                     break;
             }
         }
 
+        /// <summary>
+        /// Handles the MouseDown event of the Window control.
+        /// </summary>
+        /// <param name="sender">The source of the event.</param>
+        /// <param name="e">The <see cref="MouseButtonEventArgs"/> instance containing the event data.</param>
+        private void Window_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left)
+                DragMove();
+        } 
+        #endregion
+
+        #region UI Joystick Events
         /// <summary>
         /// Handles the JoystickStartButtonPressed event of the joystickHelper control.
         /// </summary>
@@ -157,44 +190,47 @@ namespace TombRaider1Launcher
         /// <param name="e">The <see cref="JoystickButtonPressedEventArgs"/> instance containing the event data.</param>
         private void JoystickHelper_JoystickButtonPressed(object sender, JoystickButtonPressedEventArgs e)
         {
+            // Translate joystick buttons presses to keyboard keys presses, because WPF does not handle joysticks well for UI navigation.
+
+            // Buttons and POV support.
             switch (e.ButtonOffset)
             {
-                case JoystickHelper.A_BUTTON_OFFSET:
-                case JoystickHelper.START_BUTTON_OFFSET:
+                case JoystickConstants.A_BUTTON_OFFSET:
+                case JoystickConstants.START_BUTTON_OFFSET:
                     Application.Current.Dispatcher.Invoke((Action)delegate
                     {
                         SendKeys.Send(Key.Enter);
                     });
                     break;
-                case JoystickHelper.BACK_BUTTON_OFFSET:
-                case JoystickHelper.B_BUTTON_OFFSET:
+                case JoystickConstants.BACK_BUTTON_OFFSET:
+                case JoystickConstants.B_BUTTON_OFFSET:
                     Application.Current.Dispatcher.Invoke((Action)delegate
                     {
-                        this.Close();
+                        Close();
                     });
                     break;
-                case JoystickHelper.POV_BUTTONS_OFFSET:
+                case JoystickConstants.POV_BUTTONS_OFFSET:
                     switch (e.PovValue)
                     {
-                        case JoystickHelper.POV_UP_BUTTON_VALUE:
+                        case JoystickConstants.POV_UP_BUTTON_VALUE:
                             Application.Current.Dispatcher.Invoke((Action)delegate
                             {
                                 SendKeys.Send(Key.Up);
                             });
                             break;
-                        case JoystickHelper.POV_DOWN_BUTTONS_VALUE:
+                        case JoystickConstants.POV_DOWN_BUTTONS_VALUE:
                             Application.Current.Dispatcher.Invoke((Action)delegate
                             {
                                 SendKeys.Send(Key.Down);
                             });
                             break;
-                        case JoystickHelper.POV_LEFT_BUTTONS_VALUE:
+                        case JoystickConstants.POV_LEFT_BUTTONS_VALUE:
                             Application.Current.Dispatcher.Invoke((Action)delegate
                             {
                                 SendKeys.Send(Key.Left);
                             });
                             break;
-                        case JoystickHelper.POV_RIGHT_BUTTONS_VALUE:
+                        case JoystickConstants.POV_RIGHT_BUTTONS_VALUE:
                             Application.Current.Dispatcher.Invoke((Action)delegate
                             {
                                 SendKeys.Send(Key.Right);
@@ -205,11 +241,11 @@ namespace TombRaider1Launcher
                 default:
                     break;
             }
-
-            switch(e.NamedOffset)
+            // X and Y axis support (left stick/joystick)
+            switch (e.NamedOffset)
             {
                 case "X":
-                    if(e.PovValue == 0)
+                    if (e.PovValue == 0)
                     {
                         // Left
                         Application.Current.Dispatcher.Invoke((Action)delegate
@@ -217,7 +253,7 @@ namespace TombRaider1Launcher
                             SendKeys.Send(Key.Left);
                         });
                     }
-                    else if(e.PovValue == UInt16.MaxValue)
+                    else if (e.PovValue == UInt16.MaxValue)
                     {
                         // Right
                         Application.Current.Dispatcher.Invoke((Action)delegate
@@ -245,6 +281,7 @@ namespace TombRaider1Launcher
                     }
                     break;
             }
-        }
+        } 
+        #endregion
     }
 }

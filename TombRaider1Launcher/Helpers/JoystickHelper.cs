@@ -1,112 +1,142 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using SharpDX.DirectInput;
 
 namespace TombRaider1Launcher
 {
-    class JoystickHelper
+    class JoystickHelper : IDisposable
     {
-        private readonly DirectInput directInput;
-        private Task pollingTask;
-        private Joystick joystick;
-        private JoystickDescriptor joystickDescriptor;
-        private Task getDInputJoysticksTask;
+        #region Attributes
+        private Task pollingTask = null;
+        private Task scanningDevicesTask = null;
 
-        public const int A_BUTTON_OFFSET = 48;
-        public const int B_BUTTON_OFFSET = 49;
-        public const int BACK_BUTTON_OFFSET = 54;
-        public const int START_BUTTON_OFFSET = 55;
-        public const int LAP_BUTTON_OFFSET = -1;
-        public const int POV_BUTTONS_OFFSET = 32;
+        private DirectInput directInput = null;
+        private Joystick joystick = null;
 
-        public const int POV_UP_BUTTON_VALUE = 0;
-        public const int POV_DOWN_BUTTONS_VALUE = 18000;
-        public const int POV_LEFT_BUTTONS_VALUE = 27000;
-        public const int POV_RIGHT_BUTTONS_VALUE = 9000;
+        private bool IsQuitPolling = false;
+        private bool IsQuitScanning = false;
+        #endregion
 
+        #region Constructor
         /// <summary>
         /// Initializes a new instance of the <see cref="JoystickHelper"/> class.
         /// </summary>
         public JoystickHelper()
         {
-            this.directInput = new DirectInput();
+            directInput = new DirectInput();
+        } 
+        #endregion
 
-            this.DetectDevices();
-        }
-
+        #region Public Methods
         /// <summary>
         /// Detects the devices.
         /// </summary>
-        private void DetectDevices()
+        public IList<JoystickDescriptor> DetectDevices()
         {
-            getDInputJoysticksTask = Task.Factory.StartNew(() =>
-            {
-                do
-                {
-                    this.joystickDescriptor = this.directInput.GetDevices(DeviceType.Gamepad, DeviceEnumerationFlags.AllDevices)
-                                  .Concat(this.directInput.GetDevices(DeviceType.Joystick, DeviceEnumerationFlags.AllDevices))
+            return directInput.GetDevices(DeviceType.Gamepad, DeviceEnumerationFlags.AllDevices)
+                                  .Concat(directInput.GetDevices(DeviceType.Joystick, DeviceEnumerationFlags.AllDevices))
                                   .Select(d => new JoystickDescriptor(d.InstanceGuid, d.InstanceName))
-                                  .FirstOrDefault();
+                                  .ToList();
+        }
 
-                    if (this.joystickDescriptor != null)
+        /// <summary>
+        /// Setups the joystick support. (Scan devices loop)
+        /// </summary>
+        public void SetupJoystickSupport()
+        {
+            scanningDevicesTask = Task.Factory.StartNew(() =>
+            {
+                while (!IsQuitScanning)
+                {
+                    if (!IsCurrentJoystickAttached())
                     {
-                        this.StartCapture(this.joystickDescriptor.InstanceGUID);
-                    }
+                        //Get list of detected joystick devices.
+                        var joysticks = DetectDevices();
 
+                        if (joysticks != null && joysticks.Any())
+                        {
+                            // Capture the device.
+                            StartCapture(joysticks.FirstOrDefault(x => x.InstanceGUID != null && x.InstanceGUID != Guid.Empty).InstanceGUID);
+                        }
+                    }
                     Task.Delay(500);
-                } while (this.joystickDescriptor == null);
+                }
             });
         }
 
+        #region Joystick Capture
         /// <summary>
         /// Starts the capture.
         /// </summary>
         /// <param name="joystickGuid">The joystick unique identifier.</param>
         public void StartCapture(Guid joystickGuid)
         {
-            this.joystick = new Joystick(this.directInput, joystickGuid);
-            this.joystick.Properties.BufferSize = 128;
-            this.joystick.Acquire();
-            this.PollJoystick();
+            joystick = new Joystick(directInput, joystickGuid);
+            joystick.Properties.BufferSize = 128;
+
+            // Get access to the joystick.
+            joystick.Acquire();
+
+            // Resets the value for the polling loop.
+            IsQuitPolling = false;
+
+            // Polling loop to read joystick data.
+            PollJoystick();
         }
 
         /// <summary>
         /// Stops the capture.
         /// </summary>
-        /// <param name="stopNow">if set to <c>true</c> [stop now].</param>
-        public void StopCapture(bool stopNow = false)
+        public void StopCapture(bool stopBackgroundScan = false)
         {
-            if (this.getDInputJoysticksTask != null)
+            //We want to stop the polling of the joystick (used for while loop).
+            IsQuitPolling = true;
+            // Wait for the while loop to stop in the polling thread.
+            if (pollingTask != null)
             {
-                this.getDInputJoysticksTask.Wait(250);
+                pollingTask.Wait(250);
             }
 
-            if (this.pollingTask != null)
+            // Release access to the joystick.
+            if (joystick != null)
             {
-                this.pollingTask.Wait(250); // you can give this Wait a timeout
+                joystick.Unacquire();
+            }
+
+            // If we want to stop the background scan loop (to add a new peripheral when unplugged -> plugged)
+            if (stopBackgroundScan)
+            {
+                IsQuitScanning = true;
+
+                if (scanningDevicesTask != null)
+                {
+                    scanningDevicesTask.Wait(250);
+                }
             }
         }
+        #endregion
 
+        #endregion
+
+        #region Private Methods
         /// <summary>
         /// Polls the joystick.
         /// </summary>
         private void PollJoystick()
         {
-            this.pollingTask = Task.Factory.StartNew(() =>
+            pollingTask = Task.Factory.StartNew(() =>
             {
-                while (true)
+                while (!IsQuitPolling)
                 {
                     try
                     {
-                        this.joystick.Poll();
-                        JoystickUpdate[] data = this.joystick.GetBufferedData();
+                        joystick.Poll();
+                        JoystickUpdate[] data = joystick.GetBufferedData();
                         foreach (JoystickUpdate joystickState in data.Where(IsRelevantUpdate))
                         {
-                            // pressed down
+                            // button pressed down
                             JoystickButtonPressedEventArgs args = new JoystickButtonPressedEventArgs
                             {
                                 ButtonOffset = joystickState.RawOffset,
@@ -115,18 +145,42 @@ namespace TombRaider1Launcher
                                 TimeStamp = DateTime.Now
                             };
 
-                            this.OnJoystickButtonPressed(args);
+                            OnJoystickButtonPressed(args);
                         }
                     }
                     catch (SharpDX.SharpDXException)
                     {
-                        this.StopCapture(true);
+                        StopCapture();
                         return;
                     }
 
                     Task.Delay(250);
                 }
             });
+        }
+
+        #region States
+        /// <summary>
+        /// Determines whether [is current joystick attached].
+        /// </summary>
+        /// <returns>
+        ///   <c>true</c> if [is current joystick attached]; otherwise, <c>false</c>.
+        /// </returns>
+        private bool IsCurrentJoystickAttached()
+        {
+            if (joystick != null)
+            {
+                try
+                {
+                    return joystick.GetCurrentState() != null;
+                }
+                catch
+                {
+                    return false;
+                }
+
+            }
+            else return false;
         }
 
         /// <summary>
@@ -143,18 +197,21 @@ namespace TombRaider1Launcher
                 state.Offset <= JoystickOffset.Buttons127 &&
                 state.Value == 128 ||
                 // POV XBOX ONE.
-                (state.RawOffset == 32 && (state.Value == POV_UP_BUTTON_VALUE || state.Value == POV_RIGHT_BUTTONS_VALUE || state.Value == POV_DOWN_BUTTONS_VALUE || state.Value == POV_LEFT_BUTTONS_VALUE)) ||
+                (state.RawOffset == 32 && (state.Value == JoystickConstants.POV_UP_BUTTON_VALUE || state.Value == JoystickConstants.POV_RIGHT_BUTTONS_VALUE || state.Value == JoystickConstants.POV_DOWN_BUTTONS_VALUE || state.Value == JoystickConstants.POV_LEFT_BUTTONS_VALUE)) ||
                 // POV DINPUT.
                 ((state.Offset.ToString() == "X" || state.Offset.ToString() == "Y") && (state.Value == 0 || state.Value == UInt16.MaxValue));
         }
+        #endregion 
+        #endregion
 
+        #region Joystick Events
         /// <summary>
         /// Raises the <see cref="E:JoystickButtonPressed" /> event.
         /// </summary>
         /// <param name="e">The <see cref="JoystickButtonPressedEventArgs"/> instance containing the event data.</param>
         protected virtual void OnJoystickButtonPressed(JoystickButtonPressedEventArgs e)
         {
-            this.JoystickButtonPressed?.Invoke(this, e);
+            JoystickButtonPressed?.Invoke(this, e);
         }
 
         /// <summary>
@@ -164,7 +221,7 @@ namespace TombRaider1Launcher
 
         protected virtual void OnJoystickLapButtonPressed(JoystickButtonPressedEventArgs e)
         {
-            this.JoystickLapButtonPressed?.Invoke(this, e);
+            JoystickLapButtonPressed?.Invoke(this, e);
         }
 
         /// <summary>
@@ -174,13 +231,52 @@ namespace TombRaider1Launcher
 
         protected virtual void OnJoystickStartButtonPressed(JoystickButtonPressedEventArgs e)
         {
-            this.JoystickStartButtonPressed?.Invoke(this, e);
-        }
+            JoystickStartButtonPressed?.Invoke(this, e);
+        } 
 
         /// <summary>
         /// Occurs when [joystick start button pressed].
         /// </summary>
         public event EventHandler<JoystickButtonPressedEventArgs> JoystickStartButtonPressed;
+        #endregion
+
+        #region IDisposable Support
+        private bool disposedValue = false; // For Redundant Calls.
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    if (joystick != null)
+                    {
+                        StopCapture();
+                        joystick.Dispose();
+                    }
+
+                    if (directInput != null)
+                    {
+                        directInput.Dispose();
+                    }
+                }
+
+                joystick = null;
+                directInput = null;
+                pollingTask = null;
+                scanningDevicesTask = null;
+
+                disposedValue = true;
+            }
+        }
+
+        // Implements Disposable.
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+        #endregion
     }
 
     public class JoystickButtonPressedEventArgs : EventArgs
@@ -203,8 +299,30 @@ namespace TombRaider1Launcher
         /// <param name="instanceName">Name of the instance.</param>
         public JoystickDescriptor(Guid instanceGUID, string instanceName)
         {
-            this.InstanceGUID = instanceGUID;
-            this.InstanceName = instanceName;
+            InstanceGUID = instanceGUID;
+            InstanceName = instanceName;
         }
+    }
+
+    /// <summary>
+    /// Constants values for Joystick.
+    /// </summary>
+    public class JoystickConstants
+    {
+        #region Buttons Offsets
+        public const int A_BUTTON_OFFSET = 48;
+        public const int B_BUTTON_OFFSET = 49;
+        public const int BACK_BUTTON_OFFSET = 54;
+        public const int START_BUTTON_OFFSET = 55;
+        public const int LAP_BUTTON_OFFSET = -1;
+        public const int POV_BUTTONS_OFFSET = 32;
+        #endregion
+
+        #region Buttons Values
+        public const int POV_UP_BUTTON_VALUE = 0;
+        public const int POV_DOWN_BUTTONS_VALUE = 18000;
+        public const int POV_LEFT_BUTTONS_VALUE = 27000;
+        public const int POV_RIGHT_BUTTONS_VALUE = 9000; 
+        #endregion
     }
 }
