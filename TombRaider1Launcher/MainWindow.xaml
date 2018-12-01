@@ -81,7 +81,7 @@
                 </FrameworkElement.Style>
             </Image>
         </Button>
-        <Button Click="exitButton_Click" Name="exitButton" Style="{DynamicResource NoChromeButton}" TabIndex="3" Height="64"
+        <Button Click="ExitButton_Click" x:Name="ExitButton" Style="{DynamicResource NoChromeButton}" TabIndex="3" Height="64"
             HorizontalAlignment="Left" Margin="613,2,0,0" VerticalAlignment="Top" Width="64">
             <Image Height="64" Width="64" RenderTransformOrigin="0.5,0.5">
                 <FrameworkElement.Style>
@@ -91,7 +91,7 @@
                             <Trigger Property="UIElement.IsMouseOver" Value="true">
                                 <Setter Property="Image.Source" Value="Resources\ExitHover.png"/>
                             </Trigger>
-                            <DataTrigger Binding="{Binding IsFocused, ElementName=exitButton}" Value="True">
+                            <DataTrigger Binding="{Binding IsFocused, ElementName=ExitButton}" Value="True">
                                 <Setter Property="Image.Source" Value="Resources\ExitHover.png"/>
                             </DataTrigger>
                         </Style.Triggers>

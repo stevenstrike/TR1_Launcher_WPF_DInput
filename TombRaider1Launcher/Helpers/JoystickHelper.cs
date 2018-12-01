@@ -10,7 +10,7 @@ namespace TombRaider1Launcher
 {
     class JoystickHelper
     {
-        private DirectInput directInput;
+        private readonly DirectInput directInput;
         private Task pollingTask;
         private Joystick joystick;
         private JoystickDescriptor joystickDescriptor;
@@ -35,30 +35,30 @@ namespace TombRaider1Launcher
         {
             this.directInput = new DirectInput();
 
-            detectDevices();
+            this.DetectDevices();
         }
 
         /// <summary>
         /// Detects the devices.
         /// </summary>
-        private void detectDevices()
+        private void DetectDevices()
         {
             getDInputJoysticksTask = Task.Factory.StartNew(() =>
             {
                 do
                 {
-                    joystickDescriptor = directInput.GetDevices(DeviceType.Gamepad, DeviceEnumerationFlags.AllDevices)
-                                  .Concat(directInput.GetDevices(DeviceType.Joystick, DeviceEnumerationFlags.AllDevices))
+                    this.joystickDescriptor = this.directInput.GetDevices(DeviceType.Gamepad, DeviceEnumerationFlags.AllDevices)
+                                  .Concat(this.directInput.GetDevices(DeviceType.Joystick, DeviceEnumerationFlags.AllDevices))
                                   .Select(d => new JoystickDescriptor(d.InstanceGuid, d.InstanceName))
                                   .FirstOrDefault();
 
-                    if (joystickDescriptor != null)
+                    if (this.joystickDescriptor != null)
                     {
-                        this.StartCapture(joystickDescriptor.InstanceGUID);
+                        this.StartCapture(this.joystickDescriptor.InstanceGUID);
                     }
 
                     Task.Delay(500);
-                } while (joystickDescriptor == null);
+                } while (this.joystickDescriptor == null);
             });
         }
 
@@ -68,7 +68,7 @@ namespace TombRaider1Launcher
         /// <param name="joystickGuid">The joystick unique identifier.</param>
         public void StartCapture(Guid joystickGuid)
         {
-            this.joystick = new Joystick(directInput, joystickGuid);
+            this.joystick = new Joystick(this.directInput, joystickGuid);
             this.joystick.Properties.BufferSize = 128;
             this.joystick.Acquire();
             this.PollJoystick();
@@ -102,16 +102,18 @@ namespace TombRaider1Launcher
                 {
                     try
                     {
-                        joystick.Poll();
+                        this.joystick.Poll();
                         JoystickUpdate[] data = this.joystick.GetBufferedData();
-                        foreach (JoystickUpdate state in data.Where(IsRelevantUpdate))
+                        foreach (JoystickUpdate joystickState in data.Where(IsRelevantUpdate))
                         {
                             // pressed down
-                            JoystickButtonPressedEventArgs args = new JoystickButtonPressedEventArgs();
-                            args.ButtonOffset = state.RawOffset;
-                            args.PovValue = state.Value;
-                            args.NamedOffset = state.Offset.ToString().Trim();
-                            args.TimeStamp = DateTime.Now;
+                            JoystickButtonPressedEventArgs args = new JoystickButtonPressedEventArgs
+                            {
+                                ButtonOffset = joystickState.RawOffset,
+                                PovValue = joystickState.Value,
+                                NamedOffset = joystickState.Offset.ToString().Trim(),
+                                TimeStamp = DateTime.Now
+                            };
 
                             this.OnJoystickButtonPressed(args);
                         }
@@ -142,9 +144,8 @@ namespace TombRaider1Launcher
                 state.Value == 128 ||
                 // POV XBOX ONE.
                 (state.RawOffset == 32 && (state.Value == POV_UP_BUTTON_VALUE || state.Value == POV_RIGHT_BUTTONS_VALUE || state.Value == POV_DOWN_BUTTONS_VALUE || state.Value == POV_LEFT_BUTTONS_VALUE)) ||
-                // POV DINPUT 
-                ((state.Offset.ToString() == "X" || state.Offset.ToString() == "Y") && (state.Value == 0 || state.Value == 65535))
-                ;
+                // POV DINPUT.
+                ((state.Offset.ToString() == "X" || state.Offset.ToString() == "Y") && (state.Value == 0 || state.Value == UInt16.MaxValue));
         }
 
         /// <summary>
@@ -192,19 +193,8 @@ namespace TombRaider1Launcher
 
     public class JoystickDescriptor
     {
-        private Guid _instanceGUID;
-        public Guid InstanceGUID
-        {
-            get { return _instanceGUID; }
-            set { _instanceGUID = value; }
-        }
-
-        private string _instanceName;
-        public string InstanceName
-        {
-            get { return _instanceName; }
-            set { _instanceName = value; }
-        }
+        public Guid InstanceGUID { get; set; }
+        public string InstanceName { get; set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="JoystickDescriptor"/> class.

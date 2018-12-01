@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Threading;
-using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Markup;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace TombRaider1Launcher
 {
@@ -21,8 +17,8 @@ namespace TombRaider1Launcher
         {
             this.InitializeComponent();
 
-            joystickHelper.JoystickLapButtonPressed += joystickHelper_JoystickLapButtonPressed;
-            joystickHelper.JoystickButtonPressed += joystickHelper_JoystickButtonPressed;
+            this.joystickHelper.JoystickLapButtonPressed += this.JoystickHelper_JoystickLapButtonPressed;
+            this.joystickHelper.JoystickButtonPressed += this.JoystickHelper_JoystickButtonPressed;
         }
 
         /// <summary>
@@ -32,9 +28,9 @@ namespace TombRaider1Launcher
         /// <param name="e">The <see cref="RoutedEventArgs"/> instance containing the event data.</param>
         private void TR1_Button_Click(object sender, RoutedEventArgs e)
         {
-            joystickHelper.StopCapture();
+            this.joystickHelper.StopCapture();
 
-            startTR1();
+            this.StartTR1();
         }
 
         /// <summary>
@@ -44,9 +40,9 @@ namespace TombRaider1Launcher
         /// <param name="e">The <see cref="RoutedEventArgs"/> instance containing the event data.</param>
         private void TUB_Button_Click(object sender, RoutedEventArgs e)
         {
-            joystickHelper.StopCapture();
+            this.joystickHelper.StopCapture();
 
-            startTR1_UB();
+            this.StartTR1_UB();
         }
 
         /// <summary>
@@ -54,9 +50,9 @@ namespace TombRaider1Launcher
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="RoutedEventArgs"/> instance containing the event data.</param>
-        private void exitButton_Click(object sender, RoutedEventArgs e)
+        private void ExitButton_Click(object sender, RoutedEventArgs e)
         {
-            joystickHelper.StopCapture();
+            this.joystickHelper.StopCapture();
 
             this.Close();
         }
@@ -64,7 +60,7 @@ namespace TombRaider1Launcher
         /// <summary>
         /// Starts the tr1.
         /// </summary>
-        private void startTR1()
+        private void StartTR1()
         {
             try
             {
@@ -77,14 +73,14 @@ namespace TombRaider1Launcher
             catch (SystemException)
             {
                 this.Show();
-                int num = (int)MessageBox.Show("tombati.exe not found, please check the installation directory.");
+                MessageBox.Show("tombati.exe not found, please check the installation directory.");
             }
         }
 
         /// <summary>
         /// Starts the tr1 ub.
         /// </summary>
-        private void startTR1_UB()
+        private void StartTR1_UB()
         {
             try
             {
@@ -97,7 +93,7 @@ namespace TombRaider1Launcher
             catch (SystemException)
             {
                 this.Show();
-                int num = (int)MessageBox.Show("tombub.exe not found, please check the installation directory.");
+                MessageBox.Show("tombub.exe not found, please check the installation directory.");
             }
         }
 
@@ -139,7 +135,7 @@ namespace TombRaider1Launcher
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="JoystickButtonPressedEventArgs"/> instance containing the event data.</param>
-        private void joystickHelper_JoystickStartButtonPressed(object sender, JoystickButtonPressedEventArgs e)
+        private void JoystickHelper_JoystickStartButtonPressed(object sender, JoystickButtonPressedEventArgs e)
         {
             MessageBox.Show("joystickHelper_JoystickStartButtonPressed");
         }
@@ -149,7 +145,7 @@ namespace TombRaider1Launcher
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="JoystickButtonPressedEventArgs"/> instance containing the event data.</param>
-        private void joystickHelper_JoystickLapButtonPressed(object sender, JoystickButtonPressedEventArgs e)
+        private void JoystickHelper_JoystickLapButtonPressed(object sender, JoystickButtonPressedEventArgs e)
         {
             MessageBox.Show("joystickHelper_JoystickLapButtonPressed");
         }
@@ -159,7 +155,7 @@ namespace TombRaider1Launcher
         /// </summary>
         /// <param name="sender">The source of the event.</param>
         /// <param name="e">The <see cref="JoystickButtonPressedEventArgs"/> instance containing the event data.</param>
-        private void joystickHelper_JoystickButtonPressed(object sender, JoystickButtonPressedEventArgs e)
+        private void JoystickHelper_JoystickButtonPressed(object sender, JoystickButtonPressedEventArgs e)
         {
             switch (e.ButtonOffset)
             {
@@ -221,7 +217,7 @@ namespace TombRaider1Launcher
                             SendKeys.Send(Key.Left);
                         });
                     }
-                    else if(e.PovValue == 65535)
+                    else if(e.PovValue == UInt16.MaxValue)
                     {
                         // Right
                         Application.Current.Dispatcher.Invoke((Action)delegate
@@ -239,7 +235,7 @@ namespace TombRaider1Launcher
                             SendKeys.Send(Key.Up);
                         });
                     }
-                    else if (e.PovValue == 65535)
+                    else if (e.PovValue == UInt16.MaxValue)
                     {
                         // Down
                         Application.Current.Dispatcher.Invoke((Action)delegate
